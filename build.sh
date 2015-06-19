@@ -1,6 +1,7 @@
 #!/bin/bash
 
-file=matplotlib.nim
+#file=matplotlib.nim
+file=debug.nim
 
 fileAbs=`readlink -m $file`
 traceback=false
