@@ -15,11 +15,11 @@ proc needed*[T](o: var MyObject) =
 
 
 # this is the macro I'm actually calling
-macro call[T](o: var MyObject): stmt {.immediate.} =
+macro call[T](o: var MyObject): stmt = #{.immediate.} =
   result = newStmtList()
 
 # commenting this => it compiles
-macro call[T](o: var MyObject, va: untyped): stmt {.immediate.} =
+macro call[T](o: var MyObject, va: untyped): stmt = # {.immediate.} =
   result = newStmtList()
 
 
