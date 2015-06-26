@@ -71,7 +71,7 @@ proc createMinDeviationSample(N: int, M: int, iterations: int): seq[float] =
 
 when isMainModule:
 
-  if false:
+  if true:
     var p = createSinglePlot()
 
     let N = 1000
@@ -98,12 +98,12 @@ when isMainModule:
 
     p.enableGrid()
     #p.show
-    p.saveFigure("random.svg", bbox_inches := "tight")
+    p.saveFigure(["random.svg", "random.pdf"], bbox_inches := "tight")
 
     #p.debugPrintScript
     p.run
 
-  if false:
+  if true:
     var p = createSinglePlot()
 
     let N = 1000
@@ -121,7 +121,7 @@ when isMainModule:
     p.enableGrid()
 
     #p.debugPrintScript
-    p.saveFigure("randomHist.svg", bbox_inches:="tight")
+    p.saveFigure(["randomHist.svg", "randomHist.pdf"], bbox_inches:="tight")
     p.run
 
   if true:
@@ -151,7 +151,7 @@ when isMainModule:
 
       p.enableGrid()
       #p.show
-      p.saveFigure(ifmt"block_$offset.svg", bbox_inches := "tight")
+      p.saveFigure([ifmt"block_$offset.svg", ifmt"block_$offset.pdf"], bbox_inches := "tight")
 
       #p.debugPrintScript
       p.run
@@ -185,10 +185,9 @@ when isMainModule:
 
     p.enableGrid()
     #p.show
-    p.saveFigure(ifmt"block_dirac.svg", bbox_inches := "tight")
+    p.saveFigure(["block_dirac.svg", "block_dirac.pdf"], bbox_inches := "tight")
 
     #p.debugPrintScript
     p.run
-
 
 

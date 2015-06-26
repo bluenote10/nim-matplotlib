@@ -273,6 +273,11 @@ proc saveFigure*(p: var Plot, fn: string, kwargs: varargs[string]) =
   let kwargsJoined = kwargs.join(", ")
   p += ifmt"plt.savefig('$fn', $kwargsJoined)"
 
+proc saveFigure*(p: var Plot, fns: openarray[string], kwargs: varargs[string]) =
+  for fn in fns:
+    saveFigure(p, fn, kwargs)
+
+
 
 proc saveScript*(p: Plot, fn: string) =
   writeFile(fn, p.script)
