@@ -2,7 +2,8 @@
 
 #file=debug.nim
 #file=matplotlib.nim
-file=test.nim
+#file=test.nim
+file=parCoordTest.nim
 
 fileAbs=`readlink -m $file`
 traceback=false

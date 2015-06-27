@@ -5,6 +5,7 @@ import tables
 import sequtils
 import stringinterpolation
 import macros
+import algorithm
 
 import math
 
@@ -133,6 +134,24 @@ proc createSinglePlot*(): Plot =
   ax.tick_params(axis='x', pad=10)
   ax.tick_params(axis='y', pad=10)
 
+  # from: http://stackoverflow.com/a/7968690/1804173
+  def forceAspect(aspect=1):
+    '''
+    Adjust the subplot parameters so that the figure has the correct
+    aspect ratio.
+    '''
+    xsize,ysize = fig.get_size_inches()
+    minsize = min(xsize,ysize)
+    xlim = .4*minsize/xsize
+    ylim = .4*minsize/ysize
+    if aspect < 1:
+        xlim *= aspect
+    else:
+        ylim /= aspect
+    fig.subplots_adjust(left=.5-xlim,
+                        right=.5+xlim,
+                        bottom=.5-ylim,
+                        top=.5+ylim)
   """
 
 
@@ -219,6 +238,7 @@ proc hist*[T](p: var Plot, data: openarray[T], kwargs: varargs[string]) =
 
 
 
+
 # http://stackoverflow.com/a/14971193/1804173
 proc setFontSizeAxisLabel*(p: var Plot, axes: Axes, size: int) =
   for axis in axes:
@@ -242,6 +262,7 @@ proc setFontSizeTickLabel*(p: var Plot, axes: Axes, size: int) =
 proc setAxisLimits*(p: var Plot, axis: Axis, minVal, maxVal: float) =
   p += ifmt"""
   ax.set_${axis.letter}lim([$minVal, $maxVal])
+  #plt.${axis.letter}lim([$minVal, $maxVal])
   """
 
 proc setAxisLabel*(p: var Plot, axis: Axis, label: string) =
@@ -262,6 +283,11 @@ proc enableGrid*(p: var Plot) =
   ax.grid()
   ax.set_axisbelow(True) # to draw grid below plots
   """
+
+
+
+
+
 
 
 
@@ -295,6 +321,91 @@ proc debugPrintScript*(p: Plot) =
   echo "-------------------------"
   echo p.script
   echo "-------------------------"
+
+
+
+# higher level stuff, which uses the above
+
+type
+  Cond* = tuple[dim: int, l: float, h: float]
+
+#proc parallelCoordinates*[T](p: var Plot, numDims: int, dataObjects: openarray[openarray[T]], kwargs: varargs[string]) =
+proc parallelCoordinates*[T](
+  p: var Plot,
+  numDims: int,
+  dataObjects: seq[seq[T]],
+  conds: seq[Cond],
+  color1: string = "r",
+  color2: string = "b",
+  convertToRanks = true, kwargs: varargs[string]) =
+
+  let N = dataObjects.len
+  let aspect = (numdims-1).float * 0.5
+  let scale = 4.float
+  p += ifmt"fig = plt.figure(figsize=(${aspect*scale}, $scale))"
+  p += ifmt"fig.subplots_adjust(left=0.05, right=0.95, bottom=0.1, top=0.9)"
+  p += "ax = fig.add_subplot(111)"
+
+  for cond in conds:
+    #let w = 0.03 * aspect
+    let w = 0.03
+    let h = (cond.h - cond.l) * N.float
+    let x = (cond.dim + 1).float - (w/2.0)
+    let y = cond.l * N.float
+    p += "from matplotlib.patches import Rectangle"
+    p += ifmt"ax.add_patch(Rectangle(($x, $y), $w, $h, color='$color2', alpha=0.4))"
+    p += ifmt"ax.add_patch(Rectangle(($x, $y), $w, $h, facecolor='none', edgecolor='$color2', alpha=0.9))"
+    
+  var xValues = newSeq[float](numDims)
+  for i,x in xValues:
+    xValues[i] = (i+1).float
+
+
+  if not convertToRanks:
+    for obj in dataObjects:
+      assert(obj.len <= numDims)
+      p.plot(xValues, obj, "-", color:=color1)
+      
+  else:
+    var ranks = newSeqWith(dataObjects.len, newSeq[float](numDims))
+    for d in 0 ..< numDims:
+      var data = newSeq[tuple[value: T, id: int]](dataObjects.len)
+      for i in 0 ..< dataObjects.len:
+        data[i] = (dataObjects[i][d], i)
+      #echo data
+      data.sort(system.cmp)
+      #echo data
+      for rank in 0 ..< dataObjects.len:
+        let oid = data[rank].id
+        ranks[oid][d] = rank.float
+
+    #echo ranks
+    var highlightCount = 0
+    for obj in ranks:
+      assert(obj.len <= numDims)
+      var highlight = true
+      for cond in conds:
+        let val = obj[cond.dim] / dataObjects.len.float
+        if not (val > cond.l and val <= cond.h):
+          highlight = false
+      if highlight:
+        highlightCount += 1
+        p.plot(xValues, obj, "-", color:=color2, alpha:=0.5)
+      else:
+        p.plot(xValues, obj, "-", color:=color1, alpha:=0.1)
+    echo "Number of highlighted: ", highlightCount
+    
+
+  #p += ifmt"ax.set_aspect(${numDims/dataObjects.len})"
+  #p += ifmt"forceAspect(${numDims-1})"
+  for d in 1 .. numDims:
+    #p += ifmt"plt.arrow($d, 0, 0, ${N}, head_width=${aspect * 0.015}, head_length=${N/20}, fc=better_black, ec=better_black)"
+    p += ifmt"plt.arrow($d, 0, 0, ${N}, head_width=0.026, head_length=${N/25}, fc=better_black, ec=better_black)"
+
+  p.setAxisLimits(xAxis, 1.float, numDims.float)
+  p += "plt.axis('off')"
+  #p.debugPrintScript
+ 
 
 
 template newSeqItXY(N: int, op: expr): expr =
