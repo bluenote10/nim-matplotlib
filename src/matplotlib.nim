@@ -184,6 +184,16 @@ proc customToString*[T](x: T): string =
       "True"
     else:
       "False"
+  elif T is SomeFloat:
+    case x.classify
+    of fcInf:
+      "float('inf')"
+    of fcNegInf:
+      "float('-inf')"
+    of fcNaN:
+      "float('NaN')"
+    else:
+      $x
   else:
     $x
 
@@ -194,9 +204,9 @@ macro `:=`*(k: untyped, v: typed): expr = # {.immediate.} =
   #echo result.treerepr
 
 
-proc plot*[T](p: var Plot, x: openarray[T], y: openarray[T], format: string, kwargs: varargs[string]) =
-  let xData = "[" & x.mapIt(string, $it).join(", ") & "]"
-  let yData = "[" & y.mapIt(string, $it).join(", ") & "]"
+proc plot*[X, Y](p: var Plot, x: openarray[X], y: openarray[Y], format: string, kwargs: varargs[string]) =
+  let xData = "[" & x.mapIt(string, customToString(it)).join(", ") & "]"
+  let yData = "[" & y.mapIt(string, customToString(it)).join(", ") & "]"
   let kwargsJoined = kwargs.join(", ")
   p += &"x = {xData}"
   p += &"y = {yData}"
