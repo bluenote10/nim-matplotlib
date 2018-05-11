@@ -1,4 +1,7 @@
-matplotlib
+*
+!**/
+!*.*
+
 nimcache
 .changes
 

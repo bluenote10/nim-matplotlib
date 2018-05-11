@@ -3,11 +3,11 @@ import os
 import strutils except format
 import tables
 import sequtils
-import stringinterpolation
+import strformat
 import macros
 import algorithm
-
 import math
+import random
 
 type
   SeriesXY* = object
@@ -51,10 +51,6 @@ type
 
 proc `$`(n: typedesc[None]): string = "None"
 
-
-
-
-
 proc letter(axis: Axis): string =
   case axis
   of xAxis: "x"
@@ -71,12 +67,37 @@ iterator items(axes: Axes): Axis =
     discard
 
 
+proc firstFirstNonSpace(s: string): int =
+  var i = 0
+  while s[i].isSpaceAscii and i < s.len:
+    i += 1
+  if i < s.len and not s[i].isSpaceAscii:
+    return i
+  else:
+    return -1
+
+proc unindentHelper(s: string): string =
+  # Apparently Nim's unindent behavior has changed, so we need our own solution:
+  var minC = high(int)
+  for line in s.splitLines:
+    let c = s.firstFirstNonSpace
+    if c != -1 and c < minC:
+      minC = c
+
+  result = ""
+  for line in s.splitLines:
+    if line.len > minC:
+      result.add(line[minC .. ^1])
+    result.add("\n")
+
+proc stripNewlines(s: string): string =
+  s.strip(leading=true, chars={'\n'}).strip(leading=false, chars={'\n'})
 
 proc `+=`*(p: var Plot, code: string) =
   ## adds code to the plot script. For convenience
   ## the code is unindented and a trailing newline
   ## is added.
-  p.script.add(code.unindent & "\n")
+  p.script.add(code.stripNewlines.unindentHelper)
 
 proc addRaw*(p: var Plot, code: string) =
   ## without unident and newline
@@ -116,7 +137,7 @@ proc createSinglePlot*(): Plot =
   matplotlib.rcParams['grid.color'] = '#999999'
 
   import matplotlib.pyplot as plt
-  
+
   # the convention is to have 'fig' and 'ax'
   # refer to the current figure and axes element.
 
@@ -126,7 +147,7 @@ proc createSinglePlot*(): Plot =
   # axis labels
   ax.xaxis.label.set_color(better_black)
   ax.yaxis.label.set_color(better_black)
-  
+
   # this sets the color of both ticks and ticklabels
   ax.tick_params(axis='x', colors=better_black)
 
@@ -155,57 +176,6 @@ proc createSinglePlot*(): Plot =
   """
 
 
-proc plot*[T](p: var Plot, x: openarray[T], y: openarray[T], format: string, kwargs: varargs[string]) =
-  let xData = "[" & x.mapIt(string, $it).join(", ") & "]"
-  let yData = "[" & y.mapIt(string, $it).join(", ") & "]"
-  let kwargsJoined = kwargs.join(", ")
-  p += ifmt"x = $xData"
-  p += ifmt"y = $yData"
-  p += ifmt"plt.plot(x, y, '$format', $kwargsJoined)"
-  # note: python does not mind about kwargsJoined being ""
-
-
-when false:
-  macro plot[T](p: var Plot, x: openarray[T], y: openarray[T], format: string): stmt = #{.immediate.} =
-    result = newCall(bindSym"plotVA")
-    result.add(p)
-    result.add(x)
-    result.add(y)
-    result.add(format)
-
-  macro plot[T](p: var Plot, x: openarray[T], y: openarray[T], format: string, va: typed): stmt {.immediate.} =
-    result = newCall(bindSym"plotVA")
-    result.add(p)
-    result.add(x)
-    result.add(y)
-    result.add(format)
-
-    let args = callsite()
-    for i in 5..<args.len:
-      if args[i].kind == nnkExprEqExpr:
-        echo "key=value pair" #, args[i].kind, args[i]
-        echo args[i].treerepr
-        echo args[i][0].toStrLit.strVal
-        echo args[i][1].toStrLit.strVal
-        #let value = parseExpr(args[i][1].toStrLit.strVal)
-        #echo "value: ", value.treerepr
-        let kwarg = args[i][0].toStrLit.strVal & "=" & args[i][1].toStrLit.strVal
-        result.add(newStrLitNode(kwarg))
-      else:
-        echo "unnamed argument", args[i].kind, args[i]
-    #var result = newStmtList()
-
-    echo result.treeRepr
-
-
-discard """
-template `->`(k: untyped, v: typed): expr {.immediate.} =
-  echo k.repr
-  let key = "test" #k #.toStrLit.strVal
-  let value = $v
-  format("%s = %s", key, value)
-"""
-
 proc customToString*[T](x: T): string =
   when T is string:
     "'" & $x & "'"
@@ -222,7 +192,16 @@ macro `:=`*(k: untyped, v: typed): expr = # {.immediate.} =
   let right = newCall(bindSym"&", newStrLitNode("="), value)
   result    = newCall(bindSym"&", k.toStrLit, right)
   #echo result.treerepr
-  
+
+
+proc plot*[T](p: var Plot, x: openarray[T], y: openarray[T], format: string, kwargs: varargs[string]) =
+  let xData = "[" & x.mapIt(string, $it).join(", ") & "]"
+  let yData = "[" & y.mapIt(string, $it).join(", ") & "]"
+  let kwargsJoined = kwargs.join(", ")
+  p += &"x = {xData}"
+  p += &"y = {yData}"
+  p += &"plt.plot(x, y, '{format}', {kwargsJoined})"
+  # note: python does not mind about kwargsJoined being ""
 
 
 proc hist*[T](p: var Plot, data: openarray[T], kwargs: varargs[string]) =
@@ -233,63 +212,61 @@ proc hist*[T](p: var Plot, data: openarray[T], kwargs: varargs[string]) =
   # kwargs produce an error.
   let data = "[" & data.mapIt(string, $it).join(", ") & "]"
   let kwargsJoined = kwargs.join(", ")
-  p += ifmt"data = $data"
-  p += ifmt"plt.hist(data, $kwargsJoined)"
+  p += &"data = {data}"
+  p += &"plt.hist(data, {kwargsJoined})"
 
+# -----------------------------------------------------------------------------
+# Plot manipulation
+# -----------------------------------------------------------------------------
 
-
-
-# http://stackoverflow.com/a/14971193/1804173
 proc setFontSizeAxisLabel*(p: var Plot, axes: Axes, size: int) =
+  # http://stackoverflow.com/a/14971193/1804173
   for axis in axes:
-    p += ifmt"""
-    ax.${axis.letter}axis.label.set_fontsize($size)
+    p += &"""
+    ax.{axis.letter}axis.label.set_fontsize({size})
     """
 
 proc setFontSizeTitle*(p: var Plot, size: int) =
-  p += ifmt"""
-  ax.title.set_fontsize($size)
+  p += &"""
+  ax.title.set_fontsize({size})
   """
 
 proc setFontSizeTickLabel*(p: var Plot, axes: Axes, size: int) =
   for axis in axes:
-    p += ifmt"""
-    for tick in ax.${axis.letter}axis.get_major_ticks():
-      tick.label.set_fontsize($size)
+    p += &"""
+    for tick in ax.{axis.letter}axis.get_major_ticks():
+      tick.label.set_fontsize({size})
     """
 
 
 proc setAxisLimits*(p: var Plot, axis: Axis, minVal, maxVal: float) =
-  p += ifmt"""
-  ax.set_${axis.letter}lim([$minVal, $maxVal])
-  #plt.${axis.letter}lim([$minVal, $maxVal])
+  p += &"""
+  ax.set_{axis.letter}lim([{minVal}, {maxVal}])
+  #plt.{axis.letter}lim([{minVal}, {maxVal}])
   """
 
 proc setAxisLabel*(p: var Plot, axis: Axis, label: string) =
-  p += ifmt"""
-  ax.set_${axis.letter}label('$label')
+  p += &"""
+  ax.set_{axis.letter}label('{label}')
   """
-  # alternative is plt.${axis.letter}label('$label')
+  # alternative is plt.{axis.letter}label('$label')
 
 proc setTitle*(p: var Plot, title: string) =
-  p += ifmt"""
-  ax.set_title('$title')
+  p += &"""
+  ax.set_title('{title}')
   """
 
 proc enableGrid*(p: var Plot) =
   # TODO: implement grids only for a specified axis
   # possible via ax.xaxis.grid()
-  p += ifmt"""
+  p += &"""
   ax.grid()
   ax.set_axisbelow(True) # to draw grid below plots
   """
 
-
-
-
-
-
-
+# -----------------------------------------------------------------------------
+# Output related
+# -----------------------------------------------------------------------------
 
 proc show*(p: var Plot) =
   p += "plt.show()"
@@ -297,12 +274,11 @@ proc show*(p: var Plot) =
 
 proc saveFigure*(p: var Plot, fn: string, kwargs: varargs[string]) =
   let kwargsJoined = kwargs.join(", ")
-  p += ifmt"plt.savefig('$fn', $kwargsJoined)"
+  p += &"plt.savefig('{fn}', {kwargsJoined})"
 
 proc saveFigure*(p: var Plot, fns: openarray[string], kwargs: varargs[string]) =
   for fn in fns:
     saveFigure(p, fn, kwargs)
-
 
 
 proc saveScript*(p: Plot, fn: string) =
@@ -315,16 +291,16 @@ proc run*(p: Plot, ignoreError = true) =
   var ret = execShellCmd("python \"" & fn & "\"")
   if ret != 0 and not ignoreError:
     raise newException(IOError, "failed to run plot script")
-  
+
 
 proc debugPrintScript*(p: Plot) =
   echo "-------------------------"
   echo p.script
   echo "-------------------------"
 
-
-
-# higher level stuff, which uses the above
+# -----------------------------------------------------------------------------
+# Higher level stuff, which uses the above
+# -----------------------------------------------------------------------------
 
 type
   Cond* = tuple[dim: int, l: float, h: float]
@@ -342,8 +318,8 @@ proc parallelCoordinates*[T](
   let N = dataObjects.len
   let aspect = (numdims-1).float * 0.5
   let scale = 4.float
-  p += ifmt"fig = plt.figure(figsize=(${aspect*scale}, $scale))"
-  p += ifmt"fig.subplots_adjust(left=0.05, right=0.95, bottom=0.1, top=0.9)"
+  p += &"fig = plt.figure(figsize=({aspect*scale}, {scale}))"
+  p += &"fig.subplots_adjust(left=0.05, right=0.95, bottom=0.1, top=0.9)"
   p += "ax = fig.add_subplot(111)"
 
   for cond in conds:
@@ -353,9 +329,9 @@ proc parallelCoordinates*[T](
     let x = (cond.dim + 1).float - (w/2.0)
     let y = cond.l * N.float
     p += "from matplotlib.patches import Rectangle"
-    p += ifmt"ax.add_patch(Rectangle(($x, $y), $w, $h, color='$color2', alpha=0.4))"
-    p += ifmt"ax.add_patch(Rectangle(($x, $y), $w, $h, facecolor='none', edgecolor='$color2', alpha=0.9))"
-    
+    p += &"ax.add_patch(Rectangle(({x}, {y}), {w}, {h}, color='{color2}', alpha=0.4))"
+    p += &"ax.add_patch(Rectangle(({x}, {y}), {w}, {h}, facecolor='none', edgecolor='{color2}', alpha=0.9))"
+
   var xValues = newSeq[float](numDims)
   for i,x in xValues:
     xValues[i] = (i+1).float
@@ -365,7 +341,7 @@ proc parallelCoordinates*[T](
     for obj in dataObjects:
       assert(obj.len <= numDims)
       p.plot(xValues, obj, "-", color:=color1)
-      
+
   else:
     var ranks = newSeqWith(dataObjects.len, newSeq[float](numDims))
     for d in 0 ..< numDims:
@@ -394,18 +370,17 @@ proc parallelCoordinates*[T](
       else:
         p.plot(xValues, obj, "-", color:=color1, alpha:=0.1)
     echo "Number of highlighted: ", highlightCount
-    
 
-  #p += ifmt"ax.set_aspect(${numDims/dataObjects.len})"
-  #p += ifmt"forceAspect(${numDims-1})"
+
+  #p += &"ax.set_aspect({numDims/dataObjects.len})"
+  #p += &"forceAspect({numDims-1})"
   for d in 1 .. numDims:
-    #p += ifmt"plt.arrow($d, 0, 0, ${N}, head_width=${aspect * 0.015}, head_length=${N/20}, fc=better_black, ec=better_black)"
-    p += ifmt"plt.arrow($d, 0, 0, ${N}, head_width=0.026, head_length=${N/25}, fc=better_black, ec=better_black)"
+    #p += &"plt.arrow($d, 0, 0, {N}, head_width={aspect * 0.015}, head_length={N/20}, fc=better_black, ec=better_black)"
+    p += &"plt.arrow($d, 0, 0, {N}, head_width=0.026, head_length={N/25}, fc=better_black, ec=better_black)"
 
   p.setAxisLimits(xAxis, 1.float, numDims.float)
   p += "plt.axis('off')"
   #p.debugPrintScript
- 
 
 
 template newSeqItXY(N: int, op: expr): expr =
@@ -424,10 +399,8 @@ template newSeqItXY(N: int, op: expr): expr =
   (xs, ys)
 
 
-
 when isMainModule:
   var p = createSinglePlot()
-
 
   let x = [1,2,3]
   let y = [3,1,2]
@@ -457,10 +430,8 @@ when isMainModule:
   #p.plot(x, y, "-", lw=lw)
   #p.plot(x, y, "-", lw=10, color="#111144")
 
-
   #p.show
   p.saveFigure("test.svg", bbox_inches := "tight")
-
 
   p.debugPrintScript
   p.run

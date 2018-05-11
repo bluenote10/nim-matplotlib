@@ -1,14 +1,13 @@
 #!/bin/bash
 
-#file=debug.nim
-#file=matplotlib.nim
-#file=test.nim
-file=parCoordTest.nim
+file=src/matplotlib.nim
+#file=src/test.nim
+#file=src/parCoordTest.nim
 
 fileAbs=`readlink -m $file`
 traceback=false
 
-nim c -o:matplotlib --parallelBuild:1 --usecolors $file
+nim c -o:matplotlib --parallelBuild:1 $file
 
 compiler_exit=$?
 
