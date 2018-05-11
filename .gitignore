@@ -4,6 +4,7 @@
 
 nimcache
 .changes
+defaultRcParams.txt
 
 *.svg
 *.png
