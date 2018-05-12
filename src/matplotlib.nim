@@ -176,43 +176,60 @@ proc createSinglePlot*(): Plot =
   """
 
 
-proc customToString*[T](x: T): string =
-  when T is string:
-    "'" & $x & "'"
-  elif T is bool:
-    if x:
-      "True"
-    else:
-      "False"
-  elif T is SomeFloat:
-    case x.classify
-    of fcInf:
-      "float('inf')"
-    of fcNegInf:
-      "float('-inf')"
-    of fcNaN:
-      "float('NaN')"
-    else:
-      $x
+proc toPyString*(x: string): string =
+  "'" & $x & "'"
+
+proc toPyString*(x: bool): string =
+  if x:
+    "True"
+  else:
+    "False"
+
+proc toPyString*(x: SomeInteger): string =
+  $x
+
+proc toPyString*(x: SomeFloat): string =
+  case x.classify
+  of fcInf:
+    "float('inf')"
+  of fcNegInf:
+    "float('-inf')"
+  of fcNaN:
+    "float('NaN')"
   else:
     $x
 
-macro `:=`*(k: untyped, v: typed): expr = # {.immediate.} =
-  let value = newCall(bindSym"customToString", v)
+proc toPyString*[T](s: openarray[T]): string =
+  "[" & s.mapIt(string, toPyString(it)).join(", ") & "]"
+
+
+macro `:=`*(k: untyped, v: typed): untyped =
+  ## Helper macro for convenient kwargs sytax
+  ##
+  ## Background: kwargs are passed as plain varargs[string], for instance:
+  ##
+  ##    p.plot(xs, ys, "color='#000'")
+  ##
+  ## This macro allows to write the same as
+  ##
+  ##    p.plot(xs, ys, color := "#000")
+  ##
+  ## The macro automatically applies the toPyString conversion to the value.
+  ##
+  let value = newCall(bindSym"toPyString", v)
   let right = newCall(bindSym"&", newStrLitNode("="), value)
   result    = newCall(bindSym"&", k.toStrLit, right)
-  #echo result.treerepr
+  # echo result.treerepr
 
 
 proc plot*[X, Y](p: var Plot, x: openarray[X], y: openarray[Y], format: string, kwargs: varargs[string]) =
-  let xData = "[" & x.mapIt(string, customToString(it)).join(", ") & "]"
-  let yData = "[" & y.mapIt(string, customToString(it)).join(", ") & "]"
+  let xData = "[" & x.mapIt(string, toPyString(it)).join(", ") & "]"
+  let yData = "[" & y.mapIt(string, toPyString(it)).join(", ") & "]"
   let kwargsJoined = kwargs.join(", ")
   p += &"x = {xData}"
   p += &"y = {yData}"
   p += &"plt.plot(x, y, '{format}', {kwargsJoined})"
   # note: python does not mind about kwargsJoined being ""
-
 
 proc hist*[T](p: var Plot, data: openarray[T], kwargs: varargs[string]) =
   # TODO: hist apparently don't use the color cycle.
@@ -224,6 +241,16 @@ proc hist*[T](p: var Plot, data: openarray[T], kwargs: varargs[string]) =
   let kwargsJoined = kwargs.join(", ")
   p += &"data = {data}"
   p += &"plt.hist(data, {kwargsJoined})"
+
+proc imshow*[T](p: var Plot, data: seq[seq[T]], kwargs: varargs[string]) =
+  let pyData = data.toPyString
+  let kwargsJoined = kwargs.join(", ")
+  p += &"data = {pyData}"
+  p += &"plt.imshow(data, {kwargsJoined})"
+
+proc colorbar*(p: var Plot, kwargs: varargs[string]) =
+  let kwargsJoined = kwargs.join(", ")
+  p += &"plt.colorbar({kwargsJoined})"
 
 # -----------------------------------------------------------------------------
 # Plot manipulation
