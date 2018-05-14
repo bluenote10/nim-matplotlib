@@ -256,6 +256,12 @@ proc legend*(p: var Plot, kwargs: varargs[string]) =
   let kwargsJoined = kwargs.join(", ")
   p += &"plt.legend({kwargsJoined})"
 
+proc xscaleLog*(p: var Plot) =
+  p += &"plt.xscale('log')"
+
+proc yscaleLog*(p: var Plot) =
+  p += &"plt.yscale('log')"
+
 # -----------------------------------------------------------------------------
 # Plot manipulation
 # -----------------------------------------------------------------------------
