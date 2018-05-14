@@ -252,6 +252,10 @@ proc colorbar*(p: var Plot, kwargs: varargs[string]) =
   let kwargsJoined = kwargs.join(", ")
   p += &"plt.colorbar({kwargsJoined})"
 
+proc legend*(p: var Plot, kwargs: varargs[string]) =
+  let kwargsJoined = kwargs.join(", ")
+  p += &"plt.legend({kwargsJoined})"
+
 # -----------------------------------------------------------------------------
 # Plot manipulation
 # -----------------------------------------------------------------------------
