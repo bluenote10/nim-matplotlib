@@ -1,25 +1,23 @@
-
 import matplotlib
 import sequtils
 import math
 import random
 
-
 proc makeParCoordPlot(N, D: int, fn: string, conds: seq[Cond]) =
-
   var data = newSeqWith(N, newSeq[float](D))
   for i in 0 ..< N:
     for j in 0 ..< D:
       data[i][j] = rand(1.0)
 
   var p = createSinglePlot()
-
   p.parallelCoordinates(D, data, conds)
   p.enableGrid()
   p.saveFigure(fn)
   p.run()
 
 when isMainModule:
+  # This is some stuff I needed for a presentation. No need to
+  # understand what it is about, but it generates some nice plots ;).
   randomize(1)
   makeParCoordPlot(500, 2, "imgs/parCoord_2D.svg", @[(0, 0.1, 0.15)])
 
