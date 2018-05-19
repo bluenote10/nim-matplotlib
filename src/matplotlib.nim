@@ -223,8 +223,8 @@ macro `:=`*(k: untyped, v: typed): untyped =
 
 
 proc plot*[X, Y](p: var Plot, x: openarray[X], y: openarray[Y], format: string, kwargs: varargs[string]) =
-  let xData = "[" & x.mapIt(string, toPyString(it)).join(", ") & "]"
-  let yData = "[" & y.mapIt(string, toPyString(it)).join(", ") & "]"
+  let xData = x.toPyString
+  let yData = y.toPyString
   let kwargsJoined = kwargs.join(", ")
   p += &"x = {xData}"
   p += &"y = {yData}"
@@ -237,9 +237,9 @@ proc hist*[T](p: var Plot, data: openarray[T], kwargs: varargs[string]) =
   # and manually cycle like here http://stackoverflow.com/a/3593695/1804173
   # But, requires to check if there is a "color" kwargs, repeated
   # kwargs produce an error.
-  let data = "[" & data.mapIt(string, $it).join(", ") & "]"
+  let pyData = data.toPyString
   let kwargsJoined = kwargs.join(", ")
-  p += &"data = {data}"
+  p += &"data = {pyData}"
   p += &"plt.hist(data, {kwargsJoined})"
 
 proc imshow*[T](p: var Plot, data: seq[seq[T]], kwargs: varargs[string]) =
@@ -423,7 +423,7 @@ proc parallelCoordinates*[T](
   #p += &"forceAspect({numDims-1})"
   for d in 1 .. numDims:
     #p += &"plt.arrow($d, 0, 0, {N}, head_width={aspect * 0.015}, head_length={N/20}, fc=better_black, ec=better_black)"
-    p += &"plt.arrow($d, 0, 0, {N}, head_width=0.026, head_length={N/25}, fc=better_black, ec=better_black)"
+    p += &"plt.arrow({d}, 0, 0, {N}, head_width=0.026, head_length={N/25}, fc=better_black, ec=better_black)"
 
   p.setAxisLimits(xAxis, 1.float, numDims.float)
   p += "plt.axis('off')"
