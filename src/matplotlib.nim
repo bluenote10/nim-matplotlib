@@ -430,7 +430,7 @@ proc parallelCoordinates*[T](
   #p.debugPrintScript
 
 
-template newSeqItXY(N: int, op: expr): expr =
+template newSeqItXY(N: int, op: untyped): untyped =
   var xs = newSeq[float](N)
   var ys = newSeq[float](N)
   for it {.inject.} in 0 ..< N:
