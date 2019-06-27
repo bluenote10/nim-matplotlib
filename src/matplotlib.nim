@@ -200,7 +200,7 @@ proc toPyString*(x: SomeFloat): string =
     $x
 
 proc toPyString*[T](s: openarray[T]): string =
-  "[" & s.mapIt(string, toPyString(it)).join(", ") & "]"
+  "[" & s.mapIt(toPyString(it)).join(", ") & "]"
 
 
 macro `:=`*(k: untyped, v: typed): untyped =
